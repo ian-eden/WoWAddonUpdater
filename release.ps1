@@ -50,5 +50,11 @@ $Notes
 Already have it? The app offers this update by itself when you open it.
 "@
 
-Invoke-Checked gh release create $tag "dist\WoWAddonUpdater.exe" "dist\WoWAddonUpdater-lite.exe" --title $tag --notes $body
+# Notes go through a file: Windows PowerShell mangles quote marks in long arguments to other programs.
+$notesFile = Join-Path $env:TEMP "WoWAddonUpdater-release-notes.md"
+[IO.File]::WriteAllText($notesFile, $body)
+try {
+    Invoke-Checked gh release create $tag "dist\WoWAddonUpdater.exe" "dist\WoWAddonUpdater-lite.exe" --title $tag --notes-file $notesFile
+}
+finally { Remove-Item $notesFile -ErrorAction SilentlyContinue }
 Write-Host "Released $tag" -ForegroundColor Green
