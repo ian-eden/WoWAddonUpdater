@@ -18,6 +18,11 @@
     <PublishSingleFile>true</PublishSingleFile>
   </PropertyGroup>
 
+  <!-- Built-in copy of the known-addons list, used when GitHub can't be reached. -->
+  <ItemGroup>
+    <EmbeddedResource Include="catalog.json" LogicalName="catalog.json" />
+  </ItemGroup>
+
   <!-- Lets the code know which variant it is, so each one updates itself from the matching release file. -->
   <PropertyGroup Condition="'$(SelfContained)' == 'true'">
     <DefineConstants>$(DefineConstants);SELF_CONTAINED</DefineConstants>

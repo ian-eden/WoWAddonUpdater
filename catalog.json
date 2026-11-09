@@ -1,0 +1,13 @@
+{
+  "comment": "Known addons, matched by folder name in AddOns. The app downloads this file from GitHub when it scans, so edits here reach everyone without a new release. 'folders' = the addon's main folder(s); 'repo' = GitHub owner/name.",
+  "addons": [
+    { "name": "Atlas",       "repo": "arithmandar/Atlas",           "folders": ["Atlas"] },
+    { "name": "Dejunk",      "repo": "moody/Dejunk",                "folders": ["Dejunk"] },
+    { "name": "EllesmereUI", "repo": "EllesmereGaming/EllesmereUI", "folders": ["EllesmereUI"] },
+    { "name": "PallyPower",  "repo": "AznamirWoW/PallyPower",       "folders": ["PallyPower"] },
+    { "name": "Questie",     "repo": "Questie/Questie",             "folders": ["Questie"] },
+    { "name": "SpellCoda",   "repo": "jezzi23/spellcoda",           "folders": ["SpellCoda"] },
+    { "name": "TellMeWhen",  "repo": "ascott18/TellMeWhen",         "folders": ["TellMeWhen"] },
+    { "name": "XLoot",       "repo": "Xuerian/XLoot",               "folders": ["XLoot"] }
+  ]
+}

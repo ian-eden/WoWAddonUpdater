@@ -26,6 +26,7 @@ public sealed class MainForm : Form
     private readonly Button _updateAllBtn = MakeButton("Update all");
     private readonly Button _updateSelBtn = MakeButton("Update selected");
     private readonly Button _removeBtn = MakeButton("Remove");
+    private readonly Button _findBtn = MakeButton("Find installed addons…");
     private readonly Button _settingsBtn = MakeButton("Settings…");
     private readonly Label _pathLabel = new() { AutoSize = true, ForeColor = SystemColors.GrayText, Margin = new Padding(3, 6, 3, 6) };
     private readonly ProgressBar _progress = new() { Dock = DockStyle.Fill, Height = 14, Visible = false };
@@ -78,7 +79,7 @@ public sealed class MainForm : Form
         top.Controls.Add(_addBtn, 2, 0);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true };
-        buttons.Controls.AddRange(new Control[] { _checkBtn, _updateAllBtn, _updateSelBtn, _removeBtn, _settingsBtn });
+        buttons.Controls.AddRange(new Control[] { _checkBtn, _updateAllBtn, _updateSelBtn, _removeBtn, _findBtn, _settingsBtn });
 
         _appUpdateBar.Controls.AddRange(new Control[] { _appUpdateLabel, _appUpdateNotes, _appUpdateBtn });
         _appUpdateBtn.BackColor = SystemColors.Control;
@@ -119,6 +120,7 @@ public sealed class MainForm : Form
         _updateSelBtn.Click += async (_, _) => await RunAsync(() => UpdateAsync(SelectedAddons(), reinstall: true));
         _removeBtn.Click += (_, _) => RemoveSelected();
         _settingsBtn.Click += (_, _) => OpenSettings();
+        _findBtn.Click += async (_, _) => await FindAddonsAsync(automatic: false);
         _list.SelectedIndexChanged += (_, _) => UpdateButtons();
         _list.DoubleClick += (_, _) => OpenOnGitHub();
         Shown += async (_, _) => await OnShownAsync();
@@ -157,7 +159,7 @@ public sealed class MainForm : Form
         }
 
         if (_cfg.Addons.Count == 0)
-            Log("Paste a GitHub link above to add your first addon.");
+            await FindAddonsAsync(automatic: true); // first run: offer what's already installed
         else
             await RunAsync(() => CheckAsync(_cfg.Addons.ToList()));
     }
@@ -376,6 +378,64 @@ public sealed class MainForm : Form
         Log($"Done: {ok} of {todo.Count} updated." + (ok > 0 ? " If WoW is open, type /reload (or restart it) to load them." : ""));
     }
 
+    private async Task FindAddonsAsync(bool automatic)
+    {
+        if (_busy) return;
+        if (!Directory.Exists(_cfg.AddOnsPath))
+        {
+            Log("Set your AddOns folder in Settings first.");
+            return;
+        }
+
+        List<Suggestion> found;
+        _busy = true;
+        UpdateButtons();
+        try
+        {
+            Log("Looking for addons in your AddOns folder…");
+            var catalog = await AddonScanner.LoadCatalogAsync(CancellationToken.None);
+            found = AddonScanner.Scan(_cfg.AddOnsPath, catalog, _cfg);
+        }
+        catch (Exception ex)
+        {
+            Log("Couldn't scan the AddOns folder: " + ex.Message);
+            return;
+        }
+        finally
+        {
+            _busy = false;
+            UpdateButtons();
+        }
+
+        if (found.Count == 0)
+        {
+            Log(automatic
+                ? "Paste a GitHub link above to add your first addon."
+                : "No new addons found that this app knows about. You can still paste GitHub links above.");
+            return;
+        }
+
+        Log($"Found {found.Count} addon(s) that can be updated from GitHub.");
+        using var dlg = new FindAddonsForm(found);
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+        var added = new List<TrackedAddon>();
+        foreach (var s in dlg.Selected)
+        {
+            if (_cfg.Addons.Any(a => a.Key == s.Key)) continue;
+            var addon = new TrackedAddon { Owner = s.Owner, Repo = s.Repo, Name = s.Name };
+            _cfg.Addons.Add(addon);
+            added.Add(addon);
+        }
+        if (added.Count == 0) return;
+
+        Save();
+        RefreshList();
+        UpdateButtons();
+        Log($"Added {string.Join(", ", added.Select(a => a.Name))}. Click \"Update all\" once to install the latest versions.");
+        await RunAsync(() => CheckAsync(added));
+    }
+
     private void RemoveSelected()
     {
         var sel = SelectedAddons();
@@ -395,7 +455,7 @@ public sealed class MainForm : Form
 
     private void OpenSettings()
     {
-        using var dlg = new SettingsForm(_cfg);
+        using var dlg = new SettingsForm(_cfg, _store.FilePath, _store.IsPortable);
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
 
         var flavorChanged = !string.Equals(dlg.Flavor, _cfg.Flavor, StringComparison.OrdinalIgnoreCase);
@@ -582,6 +642,7 @@ public sealed class MainForm : Form
         _updateSelBtn.Enabled = !_busy && hasSel;
         _removeBtn.Enabled = !_busy && hasSel;
         _settingsBtn.Enabled = !_busy;
+        _findBtn.Enabled = !_busy;
     }
 
     private void Save()

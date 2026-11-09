@@ -10,7 +10,7 @@ public sealed class SettingsForm : Form
     public string Flavor => string.IsNullOrWhiteSpace(_flavor.Text) ? "forever" : _flavor.Text.Trim().ToLowerInvariant();
     public string? Token => string.IsNullOrWhiteSpace(_token.Text) ? null : _token.Text.Trim();
 
-    public SettingsForm(AppConfig cfg)
+    public SettingsForm(AppConfig cfg, string settingsFile, bool portable)
     {
         Text = "Settings";
         Font = new Font("Segoe UI", 9f);
@@ -36,7 +36,7 @@ public sealed class SettingsForm : Form
         grid.Controls.Add(MakeLabel("AddOns folder:"), 0, 0);
         grid.Controls.Add(_path, 1, 0);
         grid.Controls.Add(browse, 2, 0);
-        grid.Controls.Add(Hint(@"e.g. D:\Games\World of Warcraft\_forever_\Interface\AddOns"), 1, 1);
+        grid.Controls.Add(Hint(@"Usually C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns"), 1, 1);
 
         grid.Controls.Add(MakeLabel("Game version:"), 0, 2);
         grid.Controls.Add(_flavor, 1, 2);
@@ -47,13 +47,28 @@ public sealed class SettingsForm : Form
         grid.Controls.Add(Hint("Optional. Without one GitHub allows 60 checks an hour, plenty for a few addons. " +
                                "Stored as plain text in WoWAddonUpdater.json."), 1, 5);
 
+        var openFolder = new Button { Text = "Open folder", AutoSize = true };
+        openFolder.Click += (_, _) =>
+        {
+            var dir = Path.GetDirectoryName(settingsFile)!;
+            Directory.CreateDirectory(dir);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{dir}\""));
+        };
+        var fileBox = new TextBox { Dock = DockStyle.Fill, ReadOnly = true, Text = settingsFile };
+        grid.Controls.Add(MakeLabel("Your addon list:"), 0, 6);
+        grid.Controls.Add(fileBox, 1, 6);
+        grid.Controls.Add(openFolder, 2, 6);
+        grid.Controls.Add(Hint(portable
+            ? "Portable mode: the list is kept next to the exe because a WoWAddonUpdater.json was found there."
+            : "Copy this file to another PC (same place) to take your addon list with you."), 1, 7);
+
         var ok = new Button { Text = "OK", AutoSize = true, DialogResult = DialogResult.None };
         var cancel = new Button { Text = "Cancel", AutoSize = true, DialogResult = DialogResult.Cancel };
         ok.Click += (_, _) => Accept();
         var buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Dock = DockStyle.Fill };
         buttons.Controls.Add(cancel);
         buttons.Controls.Add(ok);
-        grid.Controls.Add(buttons, 0, 6);
+        grid.Controls.Add(buttons, 0, 8);
         grid.SetColumnSpan(buttons, 3);
 
         Controls.Add(grid);
@@ -67,7 +82,9 @@ public sealed class SettingsForm : Form
         {
             Description = @"Choose the AddOns folder (…\World of Warcraft\_forever_\Interface\AddOns)",
             UseDescriptionForTitle = true,
-            InitialDirectory = Directory.Exists(AddOnsPath) ? AddOnsPath : "",
+            InitialDirectory = Directory.Exists(AddOnsPath) ? AddOnsPath
+                : Directory.Exists(@"C:\Program Files (x86)\World of Warcraft") ? @"C:\Program Files (x86)\World of Warcraft"
+                : "",
         };
         if (dlg.ShowDialog(this) == DialogResult.OK) _path.Text = dlg.SelectedPath;
     }
