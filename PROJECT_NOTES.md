@@ -3,10 +3,10 @@
 A small Windows app (C#, WinForms, .NET 10) that keeps World of Warcraft addons up to date from the authors' **GitHub releases**. Built as a lightweight alternative to the CurseForge app. Made for **WoW Forever** (interface `16001`, folder `_forever_`), but it supports the other game versions through Settings.
 
 - **Repository (public):** https://github.com/ian-eden/WoWAddonUpdater
-- **Latest release:** v0.2.0 (2026-11-08)
+- **Latest release:** v0.2.1 (2026-11-09)
 - **Shared with:** a few friends, by link only. It isn't advertised anywhere.
 
-*Last updated: 2026-11-08*
+*Last updated: 2026-11-09*
 
 ---
 
@@ -110,7 +110,7 @@ In order: (1) the paths in Battle.net's `C:\ProgramData\Battle.net\Agent\product
 | XLoot | Xuerian/XLoot | |
 | TitanRecZone | *(Bitbucket, abandoned 2020)* | Only on CurseForge now; not supported yet |
 
-Also installed but not tracked: Leatrix Plus/Maps/Sounds, TradeSkillMaster, Titan Panel + plugins (no `TitanPanel/Titan-Panel` repo found on GitHub), Attune, QuestTargets. `QuestieTrace` is a separate Questie add-on, not part of the Questie zip.
+Also installed but not tracked: Leatrix Plus/Maps/Sounds, TradeSkillMaster, Titan Panel + plugins (no `TitanPanel/Titan-Panel` repo found on GitHub), Attune, QuestTargets. `QuestieTrace` (Questie/QuestieTrace) is a separate Questie add-on, not part of the Questie zip. Ian tracks it, but it's deliberately left out of `catalog.json` because few people use it.
 
 ---
 
@@ -124,6 +124,8 @@ Also installed but not tracked: Leatrix Plus/Maps/Sounds, TradeSkillMaster, Tita
    - Settings shows the list's location with an "Open folder" button
    - Forever confirmation through the `.toc` for addons without a release.json
    - release script fixes (git warnings, notes through a file)
+4. **v0.2.1:**
+   - "Remove" button renamed to "Remove from list", so it's clear it only stops tracking and doesn't delete the addon's files.
 
 ## Ideas / not done yet
 - **CurseForge support** (for TitanRecZone and CurseForge-only addons). Ian is applying for an API key at console.curseforge.com. The key **must not** be put in the exe or the public repo. Plan: a per-user "CurseForge API key" field in Settings; without a key, CurseForge addons are simply skipped. API: `GET /v1/mods/search?gameId=1&slug=<slug>`, then `/v1/mods/{id}/files`; respect `allowModDistribution` (no download URL when false).

@@ -25,7 +25,7 @@ public sealed class MainForm : Form
     private readonly Button _checkBtn = MakeButton("Check for updates");
     private readonly Button _updateAllBtn = MakeButton("Update all");
     private readonly Button _updateSelBtn = MakeButton("Update selected");
-    private readonly Button _removeBtn = MakeButton("Remove");
+    private readonly Button _removeBtn = MakeButton("Remove from list");
     private readonly Button _findBtn = MakeButton("Find installed addons…");
     private readonly Button _settingsBtn = MakeButton("Settings…");
     private readonly Label _pathLabel = new() { AutoSize = true, ForeColor = SystemColors.GrayText, Margin = new Padding(3, 6, 3, 6) };
