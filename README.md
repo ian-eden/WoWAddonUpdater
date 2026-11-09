@@ -19,11 +19,21 @@ Windows may say *"Windows protected your PC"* the first time, because the app is
 
 After that, open the app now and then: it checks for updates when it starts, and **Update all** installs only what changed. Type `/reload` in game (or restart WoW) to load them.
 
+### Addons that aren't on GitHub (CurseForge etc.)
+
+1. Paste the addon's page link, e.g. `https://www.curseforge.com/wow/addons/dungeonjournal`, and press Enter.
+2. Right-click it and choose **Check page for updates / download…**. Its page opens in your browser.
+3. Click **Download** on the page. As soon as the zip lands in your Downloads folder, the app installs it.
+
+The app can't see when these addons get a new version, so check their page now and then. You can also install a zip you already have: use **Add addons ▾ → Install from a zip file…**, or drag the zip onto the window.
+
+Right-click any addon for more: update or reinstall it, open its page or folder, or remove it from the list.
+
 Good to know:
-- An addon only works here if its author attaches a `.zip` to their GitHub releases. Most popular addons do.
+- A GitHub addon only works here if its author attaches a `.zip` to their GitHub releases. Most popular addons do.
 - Your addon settings (in WTF\SavedVariables) aren't touched.
 - If an update fails partway, the old version is put back.
-- Your list is saved in `WoWAddonUpdater.json` next to the exe. Keep the two together.
+- Your list is saved in `%AppData%\WoWAddonUpdater\WoWAddonUpdater.json` (Settings shows where, with an "Open folder" button).
 - The app updates itself too: when there's a new version, a yellow bar offers it.
 
 ## For developers

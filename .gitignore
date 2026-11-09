@@ -6,3 +6,6 @@ dist/
 *.user
 WoWAddonUpdater.json
 WoWAddonUpdater.json.*
+
+# Personal, machine-specific notes
+PROJECT_NOTES.local.md

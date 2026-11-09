@@ -19,73 +19,107 @@ public static class Installer
         GitHubClient gh, TrackedAddon addon, ReleaseCandidate release, string addOnsPath,
         IProgress<int> progress, Action<string> log, CancellationToken ct)
     {
-        var addOns = Path.GetFullPath(addOnsPath);
-        if (!Directory.Exists(addOns)) throw new UpdaterException($"AddOns folder not found: {addOns}");
-        var parent = Directory.GetParent(addOns)?.FullName
-            ?? throw new UpdaterException("The AddOns folder can't be a drive root.");
+        using var staged = StagedInstall.Create(addOnsPath, log);
+        var zipPath = Path.Combine(staged.Job, "download.zip");
+        await gh.DownloadAsync(release.DownloadUrl, zipPath, progress, ct);
+        await ExtractIntoAsync(staged, zipPath, log, ct);
+        return await CommitAsync(staged, addon.InstalledFolders, log, ct);
+    }
 
-        var workRoot = Path.Combine(parent, WorkFolderName);
-        var job = Path.Combine(workRoot, $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..6]}");
-        var zipPath = Path.Combine(job, "download.zip");
-        var staging = Path.Combine(job, "new");
-        var backup = Path.Combine(job, "old");
-        Directory.CreateDirectory(staging);
-        Directory.CreateDirectory(backup);
-
-        var keepJob = false;
+    /// <summary>
+    /// Extracts a zip the user downloaded themselves into a staging folder, so its folders,
+    /// version and title can be checked before <see cref="CommitAsync"/> puts it in AddOns.
+    /// Dispose the result to clean up.
+    /// </summary>
+    public static async Task<StagedInstall> StageZipAsync(string zipPath, string addOnsPath, Action<string> log, CancellationToken ct)
+    {
+        var staged = StagedInstall.Create(addOnsPath, log);
         try
         {
-            await gh.DownloadAsync(release.DownloadUrl, zipPath, progress, ct);
-
-            log("extracting…");
-            var (items, skipped) = await Task.Run(() => ExtractAddonFolders(zipPath, staging), ct);
-            foreach (var s in skipped) log($"ignored '{s}' in the zip (no .toc file, so not an addon folder)");
-            if (items.Count == 0) throw new UpdaterException("The zip has no addon folders (no .toc files found).");
-
-            var notes = await Task.Run(() => Swap(addOns, items, backup, addon.InstalledFolders), ct);
-            foreach (var n in notes) log(n);
-
-            return items.Select(i => i.Name).ToList();
+            await ExtractIntoAsync(staged, zipPath, log, ct);
+            return staged;
         }
-        catch (RollbackFailedException)
+        catch
         {
-            keepJob = true; // the old files are still in the backup folder
+            staged.Dispose();
             throw;
-        }
-        finally
-        {
-            if (!keepJob)
-            {
-                try { Directory.Delete(job, recursive: true); }
-                catch (Exception ex) { log($"couldn't delete temp folder {job}: {ex.Message}"); }
-                try { if (!Directory.EnumerateFileSystemEntries(workRoot).Any()) Directory.Delete(workRoot); } catch { }
-            }
         }
     }
 
-    /// <summary>Reads "## Version:" from an installed addon's .toc, if there is one.</summary>
-    public static string? ReadTocVersion(string addOnsPath, string folder)
+    /// <summary>Swaps the staged folders into AddOns. Returns the folder names now installed.</summary>
+    public static async Task<List<string>> CommitAsync(StagedInstall staged, IReadOnlyCollection<string> previousFolders,
+        Action<string> log, CancellationToken ct)
     {
         try
         {
-            var dir = Path.Combine(addOnsPath, folder);
+            var notes = await Task.Run(() => Swap(staged.AddOns, staged.Items, staged.Backup, previousFolders.ToList()), ct);
+            foreach (var n in notes) log(n);
+            return staged.Folders.ToList();
+        }
+        catch (RollbackFailedException)
+        {
+            staged.KeepJob = true; // the old files are still in the backup folder
+            throw;
+        }
+    }
+
+    private static async Task ExtractIntoAsync(StagedInstall staged, string zipPath, Action<string> log, CancellationToken ct)
+    {
+        log("extracting…");
+        List<(string Name, string Source)> items;
+        List<string> skipped;
+        try
+        {
+            (items, skipped) = await Task.Run(() => ExtractAddonFolders(zipPath, staged.Staging), ct);
+        }
+        catch (InvalidDataException)
+        {
+            throw new UpdaterException($"{Path.GetFileName(zipPath)} isn't a valid zip file (or it didn't finish downloading).");
+        }
+        foreach (var s in skipped) log($"ignored '{s}' in the zip (no .toc file, so not an addon folder)");
+        if (items.Count == 0) throw new UpdaterException("The zip has no addon folders (no .toc files found).");
+        staged.Items = items;
+
+        // The main folder is usually the one with the shortest name (Questie vs QuestieDB, XLoot vs XLoot_Frame).
+        var main = items.OrderBy(i => i.Name.Length).First();
+        staged.Version = ReadTocField(main.Source, main.Name, "Version");
+        staged.Title = CleanTitle(ReadTocField(main.Source, main.Name, "Title"));
+    }
+
+    /// <summary>Reads "## Version:" from an installed addon's .toc, if there is one.</summary>
+    public static string? ReadTocVersion(string addOnsPath, string folder) =>
+        ReadTocField(Path.Combine(addOnsPath, folder), folder, "Version");
+
+    private static string? ReadTocField(string dir, string folder, string field)
+    {
+        try
+        {
             if (!Directory.Exists(dir)) return null;
             var toc = Path.Combine(dir, folder + ".toc");
             if (!File.Exists(toc)) toc = Directory.EnumerateFiles(dir, "*.toc").FirstOrDefault() ?? "";
             if (toc.Length == 0) return null;
 
+            var prefix = $"## {field}:";
             foreach (var line in File.ReadLines(toc).Take(60))
             {
                 var t = line.Trim();
-                if (t.StartsWith("## Version:", StringComparison.OrdinalIgnoreCase))
+                if (t.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 {
-                    var v = t["## Version:".Length..].Trim();
+                    var v = t[prefix.Length..].Trim();
                     return v.Length == 0 || v.Contains('@') ? null : v; // "@project-version@" = unpackaged dev copy
                 }
             }
         }
         catch { }
         return null;
+    }
+
+    /// <summary>Removes WoW colour codes (|cffRRGGBB ... |r) from a .toc title.</summary>
+    private static string? CleanTitle(string? title)
+    {
+        if (title == null) return null;
+        var t = System.Text.RegularExpressions.Regex.Replace(title, @"\|c[0-9a-fA-F]{8}|\|r", "").Trim();
+        return t.Length == 0 ? null : t;
     }
 
     /// <summary>
@@ -245,4 +279,57 @@ public static class Installer
     private static bool IsSafeFolderName(string name) =>
         name.Length > 0 && name != "." && name != ".." &&
         name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
+
+    /// <summary>
+    /// A temporary job folder next to AddOns holding an extracted zip ("new") and, during the
+    /// swap, the old version ("old"). Disposing deletes it, unless a failed rollback left the
+    /// user's old files in it.
+    /// </summary>
+    public sealed class StagedInstall : IDisposable
+    {
+        private readonly Action<string> _log;
+        private readonly string _workRoot;
+
+        public string AddOns { get; }
+        public string Job { get; }
+        public string Staging => Path.Combine(Job, "new");
+        public string Backup => Path.Combine(Job, "old");
+        internal bool KeepJob { get; set; }
+        internal List<(string Name, string Source)> Items { get; set; } = new();
+
+        public IReadOnlyList<string> Folders => Items.Select(i => i.Name).ToList();
+        public string? Version { get; internal set; }
+        public string? Title { get; internal set; }
+
+        private StagedInstall(string addOns, string workRoot, string job, Action<string> log)
+        {
+            AddOns = addOns;
+            _workRoot = workRoot;
+            Job = job;
+            _log = log;
+        }
+
+        internal static StagedInstall Create(string addOnsPath, Action<string> log)
+        {
+            var addOns = Path.GetFullPath(addOnsPath);
+            if (!Directory.Exists(addOns)) throw new UpdaterException($"AddOns folder not found: {addOns}");
+            var parent = Directory.GetParent(addOns)?.FullName
+                ?? throw new UpdaterException("The AddOns folder can't be a drive root.");
+
+            var workRoot = Path.Combine(parent, WorkFolderName);
+            var job = Path.Combine(workRoot, $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..6]}");
+            var s = new StagedInstall(addOns, workRoot, job, log);
+            Directory.CreateDirectory(s.Staging);
+            Directory.CreateDirectory(s.Backup);
+            return s;
+        }
+
+        public void Dispose()
+        {
+            if (KeepJob) return;
+            try { if (Directory.Exists(Job)) Directory.Delete(Job, recursive: true); }
+            catch (Exception ex) { _log($"couldn't delete temp folder {Job}: {ex.Message}"); }
+            try { if (!Directory.EnumerateFileSystemEntries(_workRoot).Any()) Directory.Delete(_workRoot); } catch { }
+        }
+    }
 }

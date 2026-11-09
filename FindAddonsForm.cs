@@ -14,6 +14,7 @@ public sealed class FindAddonsForm : Form
         _suggestions = suggestions;
 
         Text = "Addons found";
+        if (AppInfo.Icon is not null) Icon = AppInfo.Icon;
         Font = new Font("Segoe UI", 9f);
         StartPosition = FormStartPosition.CenterParent;
         Size = new Size(620, 400);

@@ -13,6 +13,7 @@ public sealed class SettingsForm : Form
     public SettingsForm(AppConfig cfg, string settingsFile, bool portable)
     {
         Text = "Settings";
+        if (AppInfo.Icon is not null) Icon = AppInfo.Icon;
         Font = new Font("Segoe UI", 9f);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = MinimizeBox = false;

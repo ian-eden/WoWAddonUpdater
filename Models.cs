@@ -19,17 +19,28 @@ public sealed class AppConfig
     /// </summary>
     public Dictionary<string, List<int>> KnownInterfaces { get; set; } = new() { ["forever"] = new() { 16001 } };
 
+    /// <summary>Delete a zip from the Downloads folder after the app has installed it.</summary>
+    public bool DeleteDownloadedZips { get; set; } = true;
+
     public List<TrackedAddon> Addons { get; set; } = new();
 }
 
 public sealed class TrackedAddon
 {
+    /// <summary>"github" (checked and downloaded automatically) or "manual" (the user downloads the zip, e.g. from CurseForge).</summary>
+    public string Source { get; set; } = "github";
+
     public string Owner { get; set; } = "";
     public string Repo { get; set; } = "";
+
+    /// <summary>Manual addons: the page the zip is downloaded from (may be empty for a zip installed without a link).</summary>
+    public string? PageUrl { get; set; }
+
     public string Name { get; set; } = "";
     public bool AllowPrerelease { get; set; }
 
-    // What this app last installed.
+    // What this app last installed. For manual addons InstalledTag is the .toc version and
+    // InstalledAsset the zip's file name.
     public string? InstalledTag { get; set; }
     public string? InstalledAsset { get; set; }
     public DateTimeOffset? InstalledAt { get; set; }
@@ -40,8 +51,23 @@ public sealed class TrackedAddon
     [JsonIgnore] public string? Error { get; set; }
     [JsonIgnore] public string? Activity { get; set; }
 
-    [JsonIgnore] public string Key => $"{Owner}/{Repo}".ToLowerInvariant();
-    [JsonIgnore] public string Url => $"https://github.com/{Owner}/{Repo}";
+    [JsonIgnore] public bool IsManual => Source == "manual";
+
+    [JsonIgnore]
+    public string Key => !IsManual
+        ? $"{Owner}/{Repo}".ToLowerInvariant()
+        : !string.IsNullOrEmpty(PageUrl)
+            ? "page:" + PageUrl.ToLowerInvariant()
+            : "folder:" + (InstalledFolders.FirstOrDefault() ?? Name).ToLowerInvariant();
+
+    /// <summary>Where "Open addon page" goes: the GitHub repo, or a manual addon's download page.</summary>
+    [JsonIgnore] public string? Url => IsManual ? PageUrl : $"https://github.com/{Owner}/{Repo}";
+
+    /// <summary>Short text for the Source column.</summary>
+    [JsonIgnore]
+    public string SourceText => !IsManual
+        ? $"github.com/{Owner}/{Repo}"
+        : string.IsNullOrEmpty(PageUrl) ? "zip file (manual)" : ManualPages.ShortText(PageUrl);
 }
 
 /// <summary>The release + zip chosen for the configured flavor.</summary>

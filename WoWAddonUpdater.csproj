@@ -9,7 +9,8 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AssemblyName>WoWAddonUpdater</AssemblyName>
     <RootNamespace>WoWAddonUpdater</RootNamespace>
-    <Version>0.2.1</Version>
+    <Version>0.3.0</Version>
+    <ApplicationIcon>app.ico</ApplicationIcon>
 
     <!-- `dotnet publish -c Release` produces one small WoWAddonUpdater.exe
          (needs the .NET 10 Desktop Runtime, which the SDK includes). -->
@@ -21,6 +22,8 @@
   <!-- Built-in copy of the known-addons list, used when GitHub can't be reached. -->
   <ItemGroup>
     <EmbeddedResource Include="catalog.json" LogicalName="catalog.json" />
+    <!-- Window/taskbar icon (the exe's own icon comes from ApplicationIcon). -->
+    <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
   </ItemGroup>
 
   <!-- Lets the code know which variant it is, so each one updates itself from the matching release file. -->
