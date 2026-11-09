@@ -17,7 +17,9 @@ $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
 function Invoke-Checked {
-    & $args[0] $args[1..($args.Count - 1)]
+    # Native tools (git, dotnet) write progress and warnings to stderr; only the exit code means failure.
+    $ErrorActionPreference = 'Continue'
+    & $args[0] $args[1..($args.Count - 1)] 2>&1 | ForEach-Object { "$_" }
     if ($LASTEXITCODE -ne 0) { throw "'$($args -join ' ')' failed with exit code $LASTEXITCODE." }
 }
 

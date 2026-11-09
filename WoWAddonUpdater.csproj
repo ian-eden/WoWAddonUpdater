@@ -9,7 +9,7 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AssemblyName>WoWAddonUpdater</AssemblyName>
     <RootNamespace>WoWAddonUpdater</RootNamespace>
-    <Version>0.1.1</Version>
+    <Version>0.2.0</Version>
 
     <!-- `dotnet publish -c Release` produces one small WoWAddonUpdater.exe
          (needs the .NET 10 Desktop Runtime, which the SDK includes). -->
