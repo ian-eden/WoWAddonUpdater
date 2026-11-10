@@ -3,9 +3,9 @@
 A small Windows app (C#, WinForms, .NET 10) that keeps World of Warcraft addons up to date from the authors' **GitHub releases**. Addons from CurseForge and other sites are handled as manual downloads. Built as a lightweight alternative to the CurseForge app. Made for **WoW Forever** (interface `16001`, folder `_forever_`), but it supports the other game versions through Settings.
 
 - **Repository:** https://github.com/ian-eden/WoWAddonUpdater
-- **Latest release:** v0.3.0 (2026-11-09)
+- **Latest release:** v0.3.1 (2026-11-10)
 
-*Last updated: 2026-11-09*
+*Last updated: 2026-11-10*
 
 > Machine-specific notes (local paths, the developer's own copy and addon list) live in `PROJECT_NOTES.local.md`, which isn't committed.
 
@@ -83,7 +83,13 @@ In order:
 - An optional GitHub token is stored there in plain text. Without one: 60 API requests/hour per IP, about one per addon per check.
 
 ### App self-update
-- At startup: `GET /repos/ian-eden/WoWAddonUpdater/releases/latest`. If its tag is newer than the running version, a yellow bar offers it.
+- At startup, on **Check for updates**, and on the automatic check (see below): `GET /repos/ian-eden/WoWAddonUpdater/releases/latest`. If its tag is newer than the running version, a yellow bar offers it.
+
+### Checking while the app stays open
+- A 1-minute WinForms timer runs `AutoCheckAsync`. Once `AutoCheckEvery` (3 hours) has passed since `_lastCheck`, it checks the addons and the app (`CheckEverythingAsync`). Comparing times rather than using one long timer catches up after the PC wakes from sleep.
+- It's skipped while busy or while a dialog is open. It **only checks**; nothing installs without a click.
+- `RefreshTitle()` puts the count in the window title ("– 3 updates available", "– new app version ready"), so it's visible on the taskbar without pop-ups. This is deliberately non-invasive.
+- To test without waiting 3 hours: copy the project to a scratch folder, change `AutoCheckEvery` to `FromMinutes(1)` there, and build with `-o`. Don't edit the real file with PowerShell 5's `Get-Content`/`Set-Content`: they read UTF-8 without a BOM as ANSI and garble ▾ – … ›.
 - Two release files: **`WoWAddonUpdater.exe`** (standalone/self-contained, ~49 MB, recommended for most people) and **`WoWAddonUpdater-lite.exe`** (~0.4 MB, needs the .NET 10 Desktop Runtime). Each build updates from its own file: `SELF_CONTAINED` is defined in the csproj when `SelfContained=true`, which sets `AppInfo.AssetName`.
 - Update = download to `<exe>.new`, check size + GitHub's sha256 `digest` + the `MZ` header, rename the running exe to `.old`, move the new one into place, start it, close. The next start deletes `.old`. If Windows won't allow the rename (e.g. exe in Program Files), it offers to open the releases page instead.
 - **Tested for real** (0.1.0 → 0.1.1) on both builds by clicking "Update now" through UI Automation.
@@ -159,6 +165,10 @@ No GitHub source found for: Leatrix Plus/Maps/Sounds, TradeSkillMaster, Titan Pa
      - Drawn in code with System.Drawing: a dark rounded tile, a red→yellow flame, and an up arrow in the core. The ico holds PNG frames at 16–256 px.
      - The generator was a throwaway scratch project, not kept in the repo. Its `Program.cs` would get compiled into the app if it sat in a subfolder.
    - **README:** updated for the new features, and it now gives the correct settings location.
+
+6. **v0.3.1:**
+   - A **Find more addons** button in the header, left of Settings. It opens https://www.curseforge.com/wow and has a tooltip saying to paste an addon's link into the box below.
+   - Automatic re-check every 3 hours while open. **Check for updates** now also checks for a new app version. Pending updates show in the window title.
 
 ## Ideas / not done yet
 - **CurseForge API support:** automatic update checks for CurseForge addons.

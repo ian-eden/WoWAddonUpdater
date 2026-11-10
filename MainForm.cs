@@ -115,14 +115,26 @@ public sealed class MainForm : Form
             Anchor = AnchorStyles.Left | AnchorStyles.Bottom,
         };
         _subtitle.Margin = new Padding(2, 2, 0, 0);
-        _settingsBtn.Anchor = AnchorStyles.Right;
         _settingsBtn.Margin = new Padding(0);
+        var findMoreBtn = Theme.HeaderFlatButton("Find more addons");
+        findMoreBtn.Margin = new Padding(0, 0, LogicalToDeviceUnits(8), 0);
+        findMoreBtn.Click += (_, _) => OpenUrl("https://www.curseforge.com/wow");
+        new ToolTip().SetToolTip(findMoreBtn, "Browse WoW addons on CurseForge. Copy an addon's link and paste it into the box below to add it.");
+        var headerButtons = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            WrapContents = false,
+            BackColor = Color.Transparent,
+            Anchor = AnchorStyles.Right,
+            Margin = new Padding(0),
+        };
+        headerButtons.Controls.AddRange(new Control[] { findMoreBtn, _settingsBtn });
         headerGrid.Controls.Add(logo, 0, 0);
         headerGrid.SetRowSpan(logo, 2);
         headerGrid.Controls.Add(title, 1, 0);
         headerGrid.Controls.Add(_subtitle, 1, 1);
-        headerGrid.Controls.Add(_settingsBtn, 2, 0);
-        headerGrid.SetRowSpan(_settingsBtn, 2);
+        headerGrid.Controls.Add(headerButtons, 2, 0);
+        headerGrid.SetRowSpan(headerButtons, 2);
         header.Controls.Add(headerGrid);
 
         // ---- add row
@@ -256,7 +268,9 @@ public sealed class MainForm : Form
             e.SuppressKeyPress = true;
             await AddFromBoxAsync();
         };
-        _checkBtn.Click += async (_, _) => await RunAsync(() => CheckAsync(_cfg.Addons.ToList()));
+        _checkBtn.Click += async (_, _) => await CheckEverythingAsync(userAsked: true);
+        _autoTimer.Tick += async (_, _) => await AutoCheckAsync();
+        FormClosed += (_, _) => _autoTimer.Dispose();
         _updateAllBtn.Click += async (_, _) => await RunAsync(() => UpdateAsync(_cfg.Addons.ToList(), reinstall: false));
         _settingsBtn.Click += (_, _) => OpenSettings();
         _list.SelectedIndexChanged += (_, _) => UpdateButtons();
@@ -287,6 +301,8 @@ public sealed class MainForm : Form
         if (_store.LoadError != null) Log(_store.LoadError);
 
         AppUpdater.CleanUpInBackground();
+        _lastCheck = DateTime.Now;
+        _autoTimer.Start();
         _ = CheckAppUpdateAsync(); // runs alongside the addon check
 
         if (!Directory.Exists(_cfg.AddOnsPath))
@@ -320,22 +336,68 @@ public sealed class MainForm : Form
 
     // ---- app self-update -----------------------------------------------------
 
-    private async Task CheckAppUpdateAsync()
+    private async Task CheckAppUpdateAsync(bool reportUpToDate = false)
     {
         try
         {
-            _appRelease = await AppUpdater.CheckAsync(_cfg.GitHubToken, CancellationToken.None);
-            if (_appRelease == null) return;
+            var found = await AppUpdater.CheckAsync(_cfg.GitHubToken, CancellationToken.None);
+            if (found == null)
+            {
+                if (reportUpToDate && _appRelease == null) Log($"WoW Addon Updater {AppInfo.VersionText} is the latest version.");
+                return;
+            }
 
-            _appUpdateLabel.Text = $"A new version of WoW Addon Updater is available: {_appRelease.Version.Major}." +
-                                   $"{_appRelease.Version.Minor}.{_appRelease.Version.Build} (you have {AppInfo.VersionText}).";
+            var isNew = _appRelease?.Tag != found.Tag;
+            _appRelease = found;
+            _appUpdateLabel.Text = $"A new version of WoW Addon Updater is available: {found.Version.Major}." +
+                                   $"{found.Version.Minor}.{found.Version.Build} (you have {AppInfo.VersionText}).";
             _appUpdateBar.Visible = true;
-            Log($"App update available: {_appRelease.Tag}.");
+            if (isNew) Log($"App update available: {found.Tag}.");
+            RefreshTitle();
         }
         catch (Exception ex)
         {
             Log($"Couldn't check for app updates: {ex.Message}");
         }
+    }
+
+    // ---- checking while the app stays open -----------------------------------
+
+    /// <summary>How often to re-check while the window stays open (addon authors push fixes for days after a patch).</summary>
+    private static readonly TimeSpan AutoCheckEvery = TimeSpan.FromHours(3);
+    private readonly System.Windows.Forms.Timer _autoTimer = new() { Interval = 60_000 };
+    private DateTime _lastCheck = DateTime.MinValue;
+
+    /// <summary>
+    /// Runs every minute; checks once it has been <see cref="AutoCheckEvery"/> since the last check.
+    /// Comparing times (rather than one long timer) also catches up after the PC wakes from sleep.
+    /// Only checks; nothing is installed without the user clicking.
+    /// </summary>
+    private async Task AutoCheckAsync()
+    {
+        if (_busy || OwnedForms.Length > 0 || DateTime.Now - _lastCheck < AutoCheckEvery) return;
+        if (!Directory.Exists(_cfg.AddOnsPath)) return;
+        Log($"Automatic check (every {AutoCheckEvery.TotalHours:0} hours while the app is open)…");
+        await CheckEverythingAsync(userAsked: false);
+    }
+
+    /// <summary>Addons and the app itself.</summary>
+    private async Task CheckEverythingAsync(bool userAsked)
+    {
+        _lastCheck = DateTime.Now;
+        var app = CheckAppUpdateAsync(reportUpToDate: userAsked);
+        await RunAsync(() => CheckAsync(_cfg.Addons.ToList()));
+        await app;
+    }
+
+    /// <summary>Shows pending updates in the title, so they're visible on the taskbar without any pop-ups.</summary>
+    private void RefreshTitle()
+    {
+        var n = _cfg.Addons.Count(NeedsUpdate);
+        var text = $"WoW Addon Updater {AppInfo.VersionText}";
+        if (n > 0) text += $" – {n} update{(n == 1 ? "" : "s")} available";
+        if (_appRelease != null) text += " – new app version ready";
+        if (Text != text) Text = text;
     }
 
     private async Task UpdateAppAsync()
@@ -394,6 +456,7 @@ public sealed class MainForm : Form
             _progress.Visible = false;
             Save();
             UpdateButtons();
+            RefreshTitle();
         }
     }
 

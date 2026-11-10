@@ -17,7 +17,7 @@ Windows may say *"Windows protected your PC"* the first time, because the app is
 3. Paste the link, e.g. `https://github.com/Xuerian/XLoot`, and press Enter.
 4. Click **Update all**.
 
-After that, open the app now and then: it checks for updates when it starts, and **Update all** installs only what changed. Type `/reload` in game (or restart WoW) to load them.
+After that, open the app now and then, or just leave it open. It checks for updates when it starts and again every 3 hours, and the window title shows how many are waiting (e.g. "3 updates available"). It never installs anything on its own: **Update all** installs only what changed. Type `/reload` in game (or restart WoW) to load them.
 
 ### Addons that aren't on GitHub (CurseForge etc.)
 
@@ -26,6 +26,8 @@ After that, open the app now and then: it checks for updates when it starts, and
 3. Click **Download** on the page. As soon as the zip lands in your Downloads folder, the app installs it.
 
 The app can't see when these addons get a new version, so check their page now and then. You can also install a zip you already have: use **Add addons ▾ → Install from a zip file…**, or drag the zip onto the window.
+
+Looking for something new? **Find more addons** (top right) opens CurseForge's WoW addon list. Copy an addon's link from there and paste it into the box.
 
 Right-click any addon for more: update or reinstall it, open its page or folder, or remove it from the list.
 
