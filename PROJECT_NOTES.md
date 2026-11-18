@@ -3,9 +3,9 @@
 A small Windows app (C#, WinForms, .NET 10) that keeps World of Warcraft addons up to date from the authors' **GitHub releases**. Addons from CurseForge and other sites are handled as manual downloads. Built as a lightweight alternative to the CurseForge app. Made for **WoW Forever** (interface `16001`, folder `_forever_`), but it supports the other game versions through Settings.
 
 - **Repository:** https://github.com/ian-eden/WoWAddonUpdater
-- **Latest release:** v0.3.1 (2026-11-10)
+- **Latest release:** v0.3.2 (2026-11-18)
 
-*Last updated: 2026-11-10*
+*Last updated: 2026-11-18*
 
 > Machine-specific notes (local paths, the developer's own copy and addon list) live in `PROJECT_NOTES.local.md`, which isn't committed.
 
@@ -31,6 +31,7 @@ WoWAddonUpdater/
 ├── Installer.cs            ← safe extract + folder swap with rollback; .toc helpers
 ├── AddonScanner.cs         ← scans AddOns against the catalog (+ GitHub links in .toc files)
 ├── ManualPages.cs          ← manual-download addons: CurseForge/other page links, Downloads folder watcher
+├── SeenVersions.cs         ← reads "newer version seen in game" from addons' SavedVariables (read-only)
 ├── AppUpdater.cs           ← the app updating itself from its own releases
 ├── AppInfo.cs              ← version, repo owner/name, which release file this build uses
 ├── ConfigStore.cs          ← settings file location, loading/saving, finding the WoW install
@@ -63,6 +64,13 @@ WoWAddonUpdater/
 - **Update all** skips manual addons, so it doesn't open a browser tab for each one.
 - **Add addons ▾ → Install from a zip file…** and dragging a zip onto the window: match the zip's folders to a tracked addon's `InstalledFolders`. A GitHub-tracked match is refused (use Update instead). With no match, a small dialog asks which uninstalled manual addon it is, or adds a new one with an optional page link.
 - Installing uses `Installer.StageZipAsync` (extract + read the `.toc` Version/Title, with colour codes stripped), then a confirm on first install or when the folders don't match, then `Installer.CommitAsync` (the same swap/rollback/junction protection). `InstalledTag` = the `.toc` version, `InstalledAsset` = the zip's file name, and the name comes from the `.toc` Title.
+- **"Seen in game" versions** (`SeenVersions.cs`): many addons trade versions over addon messages and print "a new version is available".
+  - On every check, the app reads (read-only) `WTF\Account\*\SavedVariables\<folder>.lua` and the per-character `Account\*\<realm>\<char>\SavedVariables\<folder>.lua` for each of a manual addon's installed folders.
+  - It looks at keys like `newestSeenVersion` / `latest…Version` / `highest…Version`, and plain `["version"] = "…"` fields (Attune stores other players' records with their version).
+  - Only values with the **same shape** as the installed version count (digits → placeholder: `16001-41` ~ `16001-42`, `2.0.9` ~ `2.0.10`). They're compared number by number, and the highest one newer than `InstalledTag` wins.
+  - It shows in Latest and as "Update available (seen in game)", and counts in the title.
+  - WoW writes SavedVariables only on logout or /reload, so the app sees a version only after that.
+  - Tested against real files: DungeonJournal stores `newestSeenVersion` (works well). Attune only stores versions of players whose data it synced (so it can lag behind the chat message). A scan takes about 3 ms.
 - Planned: with a CurseForge API key in Settings, CurseForge manual addons could switch to automatic checks (the slug is already in `PageUrl`).
 
 ### Finding installed addons
@@ -169,6 +177,9 @@ No GitHub source found for: Leatrix Plus/Maps/Sounds, TradeSkillMaster, Titan Pa
 6. **v0.3.1:**
    - A **Find more addons** button in the header, left of Settings. It opens https://www.curseforge.com/wow and has a tooltip saying to paste an addon's link into the box below.
    - Automatic re-check every 3 hours while open. **Check for updates** now also checks for a new app version. Pending updates show in the window title.
+
+7. **v0.3.2:**
+   - "Seen in game" update detection for manual-download addons (`SeenVersions.cs`).
 
 ## Ideas / not done yet
 - **CurseForge API support:** automatic update checks for CurseForge addons.

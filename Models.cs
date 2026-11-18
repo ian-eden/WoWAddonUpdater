@@ -50,6 +50,8 @@ public sealed class TrackedAddon
     [JsonIgnore] public ReleaseCandidate? Latest { get; set; }
     [JsonIgnore] public string? Error { get; set; }
     [JsonIgnore] public string? Activity { get; set; }
+    /// <summary>Manual addons: a newer version the addon heard about in game (from its SavedVariables).</summary>
+    [JsonIgnore] public string? SeenVersion { get; set; }
 
     [JsonIgnore] public bool IsManual => Source == "manual";
 

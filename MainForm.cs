@@ -520,15 +520,33 @@ public sealed class MainForm : Form
 
     private async Task CheckAsync(List<TrackedAddon> addons)
     {
-        addons = addons.Where(a => !a.IsManual).ToList(); // nothing to check for manual downloads
         if (addons.Count == 0) return;
         Log($"Checking {addons.Count} addon(s)…");
 
-        using var gh = new GitHubClient(_cfg.GitHubToken);
-        await Task.WhenAll(addons.Select(a => CheckOneAsync(gh, a)));
+        // Manual downloads: look for a newer version the addon heard about in game (local files only).
+        foreach (var a in addons.Where(a => a.IsManual)) await CheckSeenVersionAsync(a);
+
+        var fromGitHub = addons.Where(a => !a.IsManual).ToList();
+        if (fromGitHub.Count > 0)
+        {
+            using var gh = new GitHubClient(_cfg.GitHubToken);
+            await Task.WhenAll(fromGitHub.Select(a => CheckOneAsync(gh, a)));
+        }
 
         var available = addons.Count(NeedsUpdate);
         Log(available == 0 ? "Everything is up to date." : $"{available} update(s) available.");
+    }
+
+    private async Task CheckSeenVersionAsync(TrackedAddon a)
+    {
+        var before = a.SeenVersion;
+        var folders = a.InstalledFolders.ToList();
+        var installed = a.InstalledTag;
+        var path = _cfg.AddOnsPath;
+        a.SeenVersion = await Task.Run(() => SeenVersions.FindNewer(path, folders, installed));
+        if (a.SeenVersion != null && a.SeenVersion != before)
+            Log($"{a.Name}: version {a.SeenVersion} has been seen in game (you have {installed}).");
+        UpdateRow(a);
     }
 
     private async Task CheckOneAsync(GitHubClient gh, TrackedAddon a)
@@ -777,6 +795,7 @@ public sealed class MainForm : Form
             target.InstalledFolders = installed;
             target.Error = null;
             if (staged.Title != null) target.Name = staged.Title;
+            target.SeenVersion = SeenVersions.FindNewer(_cfg.AddOnsPath, target.InstalledFolders, target.InstalledTag);
             if (!_cfg.Addons.Contains(target)) _cfg.Addons.Add(target);
             Save();
             Log($"{target.Name}: installed {target.InstalledTag} ({string.Join(", ", installed)}). " +
@@ -1058,8 +1077,9 @@ public sealed class MainForm : Form
 
     // ---- list display --------------------------------------------------------
 
-    private bool NeedsUpdate(TrackedAddon a) =>
-        a.Latest != null &&
+    private bool NeedsUpdate(TrackedAddon a) => a.IsManual
+        ? a.InstalledTag != null && a.SeenVersion != null
+        : a.Latest != null &&
         (a.InstalledTag != a.Latest.Tag || a.InstalledAsset != a.Latest.AssetName || FoldersMissing(a));
 
     private bool FoldersMissing(TrackedAddon a) =>
@@ -1088,6 +1108,7 @@ public sealed class MainForm : Form
                     : ("Manual download – installed from a zip file", Theme.Info);
             if (a.InstalledTag == null) return ("Manual download – right-click to download it", Theme.Warn);
             if (FoldersMissing(a)) return ("Files missing – right-click to download it again", Theme.Warn);
+            if (a.SeenVersion != null) return ("Update available (seen in game) – right-click to download", Theme.Warn);
             return ("Manual download – right-click to check its page for updates", Theme.Info);
         }
         if (a.Latest == null) return ("Not checked yet", Theme.Muted);
@@ -1169,7 +1190,9 @@ public sealed class MainForm : Form
             installed = toc != null ? $"? (folder says {toc})" : folder != null ? "? (already in AddOns)" : "–";
         }
 
-        var latest = a.Latest == null ? "" : a.Latest.Tag + (a.Latest.Prerelease ? " (beta)" : "");
+        var latest = a.IsManual
+            ? a.SeenVersion ?? ""
+            : a.Latest == null ? "" : a.Latest.Tag + (a.Latest.Prerelease ? " (beta)" : "");
         var (status, color) = StatusOf(a);
 
         item.SubItems[0].Text = a.Name;
