@@ -29,6 +29,30 @@ public static class Theme
     public static readonly Color Bad = Color.FromArgb(200, 36, 44);
     public static readonly Color Info = Color.FromArgb(86, 104, 150);
 
+    /// <summary>
+    /// Freshness colour for "days since this addon was last updated": green when new,
+    /// amber around a month, red from three months.
+    /// </summary>
+    public static Color Age(double days)
+    {
+        var fresh = Good;
+        var amber = Color.FromArgb(214, 150, 18);
+        var stale = Bad;
+        if (days <= 7) return fresh;
+        if (days <= 30) return Mix(fresh, amber, (days - 7) / 23);
+        if (days <= 90) return Mix(amber, stale, (days - 30) / 60);
+        return stale;
+    }
+
+    private static Color Mix(Color a, Color b, double t)
+    {
+        t = Math.Clamp(t, 0, 1);
+        return Color.FromArgb(
+            (int)Math.Round(a.R + (b.R - a.R) * t),
+            (int)Math.Round(a.G + (b.G - a.G) * t),
+            (int)Math.Round(a.B + (b.B - a.B) * t));
+    }
+
     public static readonly Color NoticeBack = Color.FromArgb(255, 241, 222);
     public static readonly Color WaitBack = Color.FromArgb(228, 238, 252);
 
@@ -125,9 +149,11 @@ public sealed class HeaderPanel : Panel
 /// </summary>
 public sealed class ModernListView : ListView
 {
-    /// <summary>Column that gets a coloured dot (drawn in the sub-item's ForeColor).</summary>
+    /// <summary>Columns that get a coloured dot (drawn in the sub-item's ForeColor). A sub-item whose Tag is <see cref="NoDot"/> skips it.</summary>
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
-    public int DotColumn { get; set; } = -1;
+    public int[] DotColumns { get; set; } = Array.Empty<int>();
+
+    public const string NoDot = "nodot";
 
     public ModernListView()
     {
@@ -234,7 +260,7 @@ public sealed class ModernListView : ListView
         var fore = e.ColumnIndex == 0 ? Theme.Text : e.SubItem.ForeColor;
         if (fore == SystemColors.WindowText || fore.IsEmpty) fore = Theme.Text;
 
-        if (e.ColumnIndex == DotColumn && e.SubItem.Text.Length > 0)
+        if (DotColumns.Contains(e.ColumnIndex) && e.SubItem.Text.Length > 0 && !NoDot.Equals(e.SubItem.Tag))
         {
             var d = LogicalToDeviceUnits(8);
             var oldMode = g.SmoothingMode;

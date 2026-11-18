@@ -3,7 +3,7 @@
 A small Windows app (C#, WinForms, .NET 10) that keeps World of Warcraft addons up to date from the authors' **GitHub releases**. Addons from CurseForge and other sites are handled as manual downloads. Built as a lightweight alternative to the CurseForge app. Made for **WoW Forever** (interface `16001`, folder `_forever_`), but it supports the other game versions through Settings.
 
 - **Repository:** https://github.com/ian-eden/WoWAddonUpdater
-- **Latest release:** v0.3.2 (2026-11-18)
+- **Latest release:** v0.3.3 (2026-11-18)
 
 *Last updated: 2026-11-18*
 
@@ -180,6 +180,11 @@ No GitHub source found for: Leatrix Plus/Maps/Sounds, TradeSkillMaster, Titan Pa
 
 7. **v0.3.2:**
    - "Seen in game" update detection for manual-download addons (`SeenVersions.cs`).
+
+8. **v0.3.3:**
+   - **Updated** column (after Installed): how long ago the app installed it ("Today", "3 days ago", "2 months ago"). For manual addons, a dot shows the age: green up to 7 days, fading to amber by 30 and red from 90 (`Theme.Age`). GitHub addons show plain grey (they are checked automatically). `ModernListView.DotColumns` replaced `DotColumn`; a sub-item tagged `NoDot` skips the dot.
+   - Columns are now Addon, Installed, Updated, Latest, Status, Source (`FillRow` uses SubItems 0–5).
+   - The default window is 1180×780 (logical), clamped to the screen's working area.
 
 ## Ideas / not done yet
 - **CurseForge API support:** automatic update checks for CurseForge addons.

@@ -29,7 +29,8 @@ public sealed class MainForm : Form
     private readonly Button _addBtn = Theme.SecondaryButton("Add");
 
     // List + toolbar
-    private readonly ModernListView _list = new() { MultiSelect = true, HideSelection = false, DotColumn = 3 };
+    // Columns: Addon, Installed, Updated, Latest, Status, Source.
+    private readonly ModernListView _list = new() { MultiSelect = true, HideSelection = false, DotColumns = new[] { 2, 4 } };
     private readonly Button _checkBtn = Theme.SecondaryButton("Check for updates");
     private readonly Button _updateAllBtn = Theme.PrimaryButton("Update all");
     private readonly Button _moreBtn = Theme.SecondaryButton("Add addons  ▾");
@@ -84,7 +85,9 @@ public sealed class MainForm : Form
         BackColor = Theme.Window;
         ForeColor = Theme.Text;
         StartPosition = FormStartPosition.CenterScreen;
-        Size = new Size(LogicalToDeviceUnits(1000), LogicalToDeviceUnits(680));
+        // Roomy by default, but never bigger than the screen it opens on.
+        var work = Screen.FromPoint(Cursor.Position).WorkingArea;
+        Size = new Size(Math.Min(LogicalToDeviceUnits(1180), work.Width), Math.Min(LogicalToDeviceUnits(780), work.Height));
         MinimumSize = new Size(LogicalToDeviceUnits(760), LogicalToDeviceUnits(500));
 
         // ---- header: icon, title, folder, Settings
@@ -157,6 +160,7 @@ public sealed class MainForm : Form
         // ---- list
         _list.Columns.Add("Addon", LogicalToDeviceUnits(170));
         _list.Columns.Add("Installed", LogicalToDeviceUnits(115));
+        _list.Columns.Add("Updated", LogicalToDeviceUnits(120));
         _list.Columns.Add("Latest", LogicalToDeviceUnits(115));
         _list.Columns.Add("Status", LogicalToDeviceUnits(410));
         _list.Columns.Add("Source", LogicalToDeviceUnits(180));
@@ -1158,7 +1162,7 @@ public sealed class MainForm : Form
         _list.Items.Clear();
         foreach (var a in _cfg.Addons.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase))
         {
-            var item = new ListViewItem(new[] { "", "", "", "", "" }) { Tag = a, Name = a.Key, UseItemStyleForSubItems = false };
+            var item = new ListViewItem(new[] { "", "", "", "", "", "" }) { Tag = a, Name = a.Key, UseItemStyleForSubItems = false };
             _list.Items.Add(item);
             FillRow(item, a);
         }
@@ -1197,12 +1201,43 @@ public sealed class MainForm : Form
 
         item.SubItems[0].Text = a.Name;
         item.SubItems[1].Text = installed;
-        item.SubItems[2].Text = latest;
-        item.SubItems[3].Text = status;
-        item.SubItems[3].ForeColor = color;
-        item.SubItems[4].Text = a.SourceText;
-        item.SubItems[4].ForeColor = Theme.Muted;
-        item.SubItems[2].ForeColor = Theme.Muted;
+
+        // How long since this app last installed it. Coloured for manual downloads only:
+        // GitHub addons are checked automatically, so an old date there just means no new release.
+        var updated = item.SubItems[2];
+        if (a.InstalledAt is { } at)
+        {
+            var days = (DateTimeOffset.Now - at).TotalDays;
+            updated.Text = Ago(at);
+            updated.ForeColor = a.IsManual ? Theme.Age(days) : Theme.Muted;
+            updated.Tag = a.IsManual ? null : ModernListView.NoDot;
+        }
+        else
+        {
+            updated.Text = "–";
+            updated.ForeColor = Theme.Muted;
+            updated.Tag = ModernListView.NoDot;
+        }
+
+        item.SubItems[3].Text = latest;
+        item.SubItems[3].ForeColor = Theme.Muted;
+        item.SubItems[4].Text = status;
+        item.SubItems[4].ForeColor = color;
+        item.SubItems[5].Text = a.SourceText;
+        item.SubItems[5].ForeColor = Theme.Muted;
+    }
+
+    /// <summary>"Today", "Yesterday", "5 days ago", "3 weeks ago", "2 months ago", "1 year ago".</summary>
+    private static string Ago(DateTimeOffset when)
+    {
+        var days = (int)Math.Floor((DateTimeOffset.Now.Date - when.LocalDateTime.Date).TotalDays);
+        if (days <= 0) return "Today";
+        if (days == 1) return "Yesterday";
+        if (days < 14) return $"{days} days ago";
+        if (days < 60) return $"{days / 7} weeks ago";
+        if (days < 365) return $"{days / 30} months ago";
+        var years = days / 365;
+        return years == 1 ? "1 year ago" : $"{years} years ago";
     }
 
     private List<TrackedAddon> SelectedAddons() =>

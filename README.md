@@ -25,6 +25,8 @@ After that, open the app now and then, or just leave it open. It checks for upda
 2. Right-click it and choose **Check page for updates / download…**. Its page opens in your browser.
 3. Click **Download** on the page. As soon as the zip lands in your Downloads folder, the app installs it.
 
+The **Updated** column shows when the app last installed each addon. For manual downloads, its dot turns from green to amber to red as the months go by, a reminder to check the page.
+
 The app can't check CurseForge for new versions. But many addons hear about newer versions from other players in game (the "a new version is available" chat message). When an addon saves that in its settings, the app picks it up and shows **Update available (seen in game)**. WoW saves addon settings when you log out or `/reload`, so the app sees it after that. For other addons, check their page now and then. You can also install a zip you already have: use **Add addons ▾ → Install from a zip file…**, or drag the zip onto the window.
 
 Looking for something new? **Find more addons** (top right) opens CurseForge's WoW addon list. Copy an addon's link from there and paste it into the box.
